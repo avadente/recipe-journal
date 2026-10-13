@@ -1,0 +1,61 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const SITE_NAME = 'Recipe Journal';
+const { title, description = 'Cooking and baking recipes, and the story of learning to make them.' } = Astro.props;
+const pageTitle = title ? `${title} · ${SITE_NAME}` : SITE_NAME;
+const path = Astro.url.pathname;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{pageTitle}</title>
+    <meta name="description" content={description} />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Inter:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container nav">
+        <a class="brand" href="/">Recipe Journal</a>
+        <nav>
+          <a href="/recipes/" aria-current={path.startsWith('/recipes') ? 'page' : undefined}>Recipes</a>
+          <a href="/journal/" aria-current={path.startsWith('/journal') ? 'page' : undefined}>Journal</a>
+          <a href="/ask/" aria-current={path.startsWith('/ask') ? 'page' : undefined}>Ask</a>
+        </nav>
+      </div>
+    </header>
+    <main>
+      <slot />
+    </main>
+    <footer class="site-footer">
+      <div class="container muted">© {new Date().getFullYear()} Recipe Journal</div>
+    </footer>
+  </body>
+</html>
+
+<style>
+  .site-header { border-bottom: 1px solid var(--border); background: var(--surface); }
+  .nav { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-block: 1rem; flex-wrap: wrap; }
+  .brand { font-family: var(--serif); font-size: 1.4rem; font-weight: 600; color: var(--text); text-decoration: none; }
+  nav { display: flex; gap: 1.25rem; }
+  nav a { color: var(--muted); text-decoration: none; font-weight: 600; }
+  nav a:hover, nav a[aria-current='page'] { color: var(--accent); }
+  main { min-height: 70vh; padding-block: 2rem; }
+  .site-footer { border-top: 1px solid var(--border); padding-block: 2rem; margin-top: 4rem; font-size: 0.9rem; }
+</style>

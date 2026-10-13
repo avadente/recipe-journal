@@ -1,0 +1,67 @@
+---
+import Base from '../layouts/Base.astro';
+import RecipeCard from '../components/RecipeCard.astro';
+import AskBox from '../components/AskBox.astro';
+import { getRecipes, getJournal, formatDate } from '../lib/recipes';
+
+const recipes = (await getRecipes()).slice(0, 6);
+const posts = (await getJournal()).slice(0, 3);
+---
+
+<Base>
+  <div class="container">
+    <section class="hero">
+      <h1>Cooking, baking, and learning as I go.</h1>
+      <p class="muted lead">
+        Recipes I love, notes on what worked (and what didn't), and the story of my time in the kitchen.
+      </p>
+      <div class="actions">
+        <a class="btn" href="/recipes/">Browse recipes</a>
+        <a class="btn btn-ghost" href="/recipes/#finder">What can I make?</a>
+      </div>
+    </section>
+
+    <AskBox />
+
+    <section>
+      <div class="section-head">
+        <h2>Latest recipes</h2>
+        <a href="/recipes/">See all →</a>
+      </div>
+      <div class="grid">
+        {recipes.map((r) => <RecipeCard recipe={r} />)}
+      </div>
+    </section>
+
+    {
+      posts.length > 0 && (
+        <section>
+          <div class="section-head">
+            <h2>From the journal</h2>
+            <a href="/journal/">See all →</a>
+          </div>
+          <ul class="posts">
+            {posts.map((p) => (
+              <li>
+                <a href={`/journal/${p.id}/`}>{p.data.title}</a>
+                <span class="muted"> · {formatDate(p.data.date)}</span>
+                <p class="muted">{p.data.description}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )
+    }
+  </div>
+</Base>
+
+<style>
+  .hero { margin-block: 2rem 2.5rem; max-width: 720px; }
+  .lead { font-size: 1.15rem; }
+  .actions { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 1.25rem; }
+  .section-head { display: flex; justify-content: space-between; align-items: baseline; }
+  .posts { list-style: none; padding: 0; }
+  .posts li { margin-bottom: 1.25rem; }
+  .posts a { font-family: var(--serif); font-size: 1.2rem; font-weight: 600; }
+  .posts p { margin: 0.25rem 0 0; }
+</style>

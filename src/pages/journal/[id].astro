@@ -1,0 +1,31 @@
+---
+import { Image } from 'astro:assets';
+import { render, type CollectionEntry } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import { getJournal, formatDate } from '../../lib/recipes';
+
+export async function getStaticPaths() {
+  const posts = await getJournal();
+  return posts.map((post) => ({ params: { id: post.id }, props: { post } }));
+}
+
+const { post } = Astro.props as { post: CollectionEntry<'journal'> };
+const { Content } = await render(post);
+---
+
+<Base title={post.data.title} description={post.data.description}>
+  <article class="narrow">
+    <p class="muted"><a href="/journal/">Journal</a> · {formatDate(post.data.date)}</p>
+    <h1>{post.data.title}</h1>
+    {post.data.cover && <Image src={post.data.cover} alt={post.data.coverAlt ?? ''} width={1200} class="cover" />}
+    <div class="content">
+      <Content />
+    </div>
+  </article>
+</Base>
+
+<style>
+  .cover { border-radius: var(--radius); margin: 1.5rem 0; width: 100%; }
+  .content { font-size: 1.08rem; }
+  .content :global(img) { border-radius: var(--radius); margin-block: 1rem; }
+</style>

@@ -1,0 +1,40 @@
+---
+import { Image } from 'astro:assets';
+import { formatMinutes, totalMinutes, type Recipe } from '../lib/recipes';
+
+interface Props {
+  recipe: Recipe;
+}
+
+const { recipe } = Astro.props;
+const d = recipe.data;
+---
+
+<a class="recipe-card card" href={`/recipes/${recipe.id}/`}>
+  {
+    d.photo ? (
+      <Image src={d.photo} alt={d.photoAlt ?? d.title} width={600} height={400} class="photo" />
+    ) : (
+      <div class:list={['photo', 'placeholder', d.category]} aria-hidden="true">
+        {d.category === 'baking' ? '🥐' : '🍳'}
+      </div>
+    )
+  }
+  <div class="body">
+    <span class="chip">{d.category}</span>
+    <h3>{d.title}</h3>
+    <p class="muted">{d.description}</p>
+    <p class="meta muted">{formatMinutes(totalMinutes(recipe))} · {d.difficulty}</p>
+  </div>
+</a>
+
+<style>
+  .recipe-card { display: flex; flex-direction: column; overflow: hidden; color: inherit; text-decoration: none; transition: transform 0.15s; }
+  .recipe-card:hover { transform: translateY(-3px); }
+  .photo { width: 100%; aspect-ratio: 3 / 2; object-fit: cover; }
+  .placeholder { display: grid; place-items: center; font-size: 3rem; background: var(--accent-soft); }
+  .body { padding: 1rem 1.1rem 1.2rem; }
+  h3 { margin: 0.5rem 0 0.25rem; font-size: 1.25rem; }
+  p { margin: 0.25rem 0; font-size: 0.95rem; }
+  .meta { font-size: 0.85rem; text-transform: capitalize; }
+</style>

@@ -1,0 +1,83 @@
+---
+import { Image } from 'astro:assets';
+import { render } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import { getRecipes, formatMinutes, totalMinutes, formatDate, type Recipe } from '../../lib/recipes';
+
+export async function getStaticPaths() {
+  const recipes = await getRecipes();
+  return recipes.map((recipe) => ({ params: { id: recipe.id }, props: { recipe } }));
+}
+
+const { recipe } = Astro.props as { recipe: Recipe };
+const d = recipe.data;
+const { Content } = await render(recipe);
+---
+
+<Base title={d.title} description={d.description}>
+  <article class="narrow">
+    <p class="muted crumbs"><a href="/recipes/">Recipes</a> · {d.category}</p>
+    <h1>{d.title}</h1>
+    <p class="lead muted">{d.description}</p>
+
+    {d.photo && <Image src={d.photo} alt={d.photoAlt ?? d.title} width={1200} class="hero-photo" />}
+
+    <dl class="facts card">
+      <div><dt>Prep</dt><dd>{formatMinutes(d.prepMinutes)}</dd></div>
+      <div><dt>Cook</dt><dd>{formatMinutes(d.cookMinutes)}</dd></div>
+      <div><dt>Total</dt><dd>{formatMinutes(totalMinutes(recipe))}</dd></div>
+      <div><dt>Serves</dt><dd>{d.servings}</dd></div>
+      <div><dt>Level</dt><dd class="cap">{d.difficulty}</dd></div>
+    </dl>
+
+    {
+      (d.diet.length > 0 || d.tags.length > 0) && (
+        <p class="tags">
+          {[...d.diet, ...d.tags].map((t) => <span class="chip">{t}</span>)}
+        </p>
+      )
+    }
+
+    <h2>Ingredients</h2>
+    <ul class="ingredients">
+      {
+        d.ingredients.map((i) => (
+          <li>
+            <label>
+              <input type="checkbox" />
+              <span>
+                {i.amount && <strong>{i.amount} </strong>}
+                {i.item}
+                {i.optional && <em class="muted"> (optional)</em>}
+              </span>
+            </label>
+          </li>
+        ))
+      }
+    </ul>
+
+    <div class="content">
+      <Content />
+    </div>
+
+    <p class="muted posted">Posted {formatDate(d.date)}</p>
+  </article>
+</Base>
+
+<style>
+  .crumbs { text-transform: capitalize; margin: 0; }
+  .lead { font-size: 1.15rem; }
+  .hero-photo { border-radius: var(--radius); margin: 1.5rem 0; width: 100%; }
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 0.5rem; padding: 1rem; margin: 1.5rem 0; }
+  .facts dt { font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .facts dd { margin: 0; font-weight: 600; }
+  .cap { text-transform: capitalize; }
+  .tags { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .ingredients { list-style: none; padding: 0; }
+  .ingredients li { padding: 0.35rem 0; border-bottom: 1px dashed var(--border); }
+  .ingredients label { display: flex; gap: 0.6rem; align-items: baseline; cursor: pointer; }
+  .ingredients input:checked + span { text-decoration: line-through; color: var(--muted); }
+  .content :global(img) { border-radius: var(--radius); margin-block: 1rem; }
+  .content :global(ol li) { margin-bottom: 0.6rem; }
+  .posted { margin-top: 3rem; font-size: 0.9rem; }
+</style>

@@ -1,0 +1,84 @@
+---
+// Plain-English question box. Sends the question to /api/ask, which answers using Claude.
+interface Props {
+  compact?: boolean;
+}
+const { compact = false } = Astro.props;
+---
+
+<div class:list={['ask', 'card', { compact }]}>
+  <form class="ask-form">
+    <label for="ask-input"><strong>Ask about my recipes</strong></label>
+    <p class="muted hint">Try: “What can I make with eggs, spinach and cheese?” or “Something quick and vegetarian for dinner?”</p>
+    <div class="row">
+      <input id="ask-input" name="question" type="text" maxlength="500" autocomplete="off" placeholder="Type your question…" required />
+      <button class="btn" type="submit">Ask</button>
+    </div>
+  </form>
+  <div class="ask-result" aria-live="polite" hidden>
+    <p class="answer"></p>
+    <ul class="links"></ul>
+  </div>
+</div>
+
+<style>
+  .ask { padding: 1.25rem; }
+  .hint { margin: 0.25rem 0 0.75rem; font-size: 0.9rem; }
+  .row { display: flex; gap: 0.5rem; }
+  .row input { flex: 1; }
+  .ask-result { margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 1rem; }
+  .answer { white-space: pre-wrap; margin: 0 0 0.5rem; }
+  .links { margin: 0; padding-left: 1.2rem; }
+  .compact .hint { display: none; }
+  @media (max-width: 480px) { .row { flex-direction: column; } }
+</style>
+
+<script>
+  document.querySelectorAll<HTMLElement>('.ask').forEach((root) => {
+    const form = root.querySelector('form')!;
+    const input = root.querySelector('input')!;
+    const button = root.querySelector('button')!;
+    const result = root.querySelector<HTMLElement>('.ask-result')!;
+    const answer = root.querySelector('.answer')!;
+    const links = root.querySelector('.links')!;
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const question = input.value.trim();
+      if (!question) return;
+      button.disabled = true;
+      button.textContent = 'Thinking…';
+      result.hidden = false;
+      answer.textContent = '';
+      links.replaceChildren();
+
+      try {
+        const res = await fetch('/api/ask', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question }),
+        });
+        const data = await res.json().catch(() => ({ error: 'Something went wrong. Please try again.' }));
+        if (data.error) {
+          answer.textContent = data.error;
+          return;
+        }
+        // textContent (not innerHTML) so model output can never inject markup.
+        answer.textContent = data.answer;
+        for (const r of data.recipes ?? []) {
+          const li = document.createElement('li');
+          const a = document.createElement('a');
+          a.href = r.url;
+          a.textContent = r.title;
+          li.append(a);
+          links.append(li);
+        }
+      } catch {
+        answer.textContent = 'Could not reach the assistant. Please check your connection and try again.';
+      } finally {
+        button.disabled = false;
+        button.textContent = 'Ask';
+      }
+    });
+  });
+</script>

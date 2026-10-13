@@ -1,0 +1,177 @@
+---
+import Base from '../../layouts/Base.astro';
+import RecipeCard from '../../components/RecipeCard.astro';
+import AskBox from '../../components/AskBox.astro';
+import { getRecipes, totalMinutes } from '../../lib/recipes';
+
+const recipes = await getRecipes();
+
+// Data the browser uses for search, filters and the ingredient finder.
+const searchData = recipes.map((r) => ({
+  id: r.id,
+  text: [r.data.title, r.data.description, r.data.cuisine, ...r.data.tags, ...r.data.ingredients.map((i) => i.item)]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase(),
+  category: r.data.category,
+  difficulty: r.data.difficulty,
+  diet: r.data.diet,
+  minutes: totalMinutes(r),
+  ingredients: r.data.ingredients.filter((i) => !i.optional).map((i) => i.item.toLowerCase()),
+}));
+
+const allDiets = [...new Set(recipes.flatMap((r) => r.data.diet))].sort();
+const allIngredients = [...new Set(recipes.flatMap((r) => r.data.ingredients.map((i) => i.item.toLowerCase())))].sort();
+---
+
+<Base title="Recipes" description="Search and filter all my cooking and baking recipes.">
+  <div class="container">
+    <h1>Recipes</h1>
+
+    <div class="filters card">
+      <input id="q" type="search" placeholder="Search recipes, ingredients, tags…" aria-label="Search recipes" />
+      <div class="filter-row">
+        <select id="category" aria-label="Category">
+          <option value="">All categories</option>
+          <option value="cooking">Cooking</option>
+          <option value="baking">Baking</option>
+        </select>
+        <select id="difficulty" aria-label="Difficulty">
+          <option value="">Any difficulty</option>
+          <option value="easy">Easy</option>
+          <option value="medium">Medium</option>
+          <option value="hard">Hard</option>
+        </select>
+        <select id="time" aria-label="Total time">
+          <option value="">Any time</option>
+          <option value="30">30 min or less</option>
+          <option value="60">1 hour or less</option>
+          <option value="120">2 hours or less</option>
+        </select>
+        <select id="diet" aria-label="Diet">
+          <option value="">Any diet</option>
+          {allDiets.map((d) => <option value={d}>{d}</option>)}
+        </select>
+      </div>
+    </div>
+
+    <p id="count" class="muted"></p>
+    <div class="grid" id="results">
+      {recipes.map((r) => <div data-id={r.id}><RecipeCard recipe={r} /></div>)}
+    </div>
+    <p id="empty" class="muted" hidden>No recipes match those filters yet.</p>
+
+    <section id="finder">
+      <h2>What can I make?</h2>
+      <p class="muted">List the ingredients you have, separated by commas. Salt, pepper, oil and water are assumed.</p>
+      <div class="card finder">
+        <input id="have" type="text" list="ingredient-list" placeholder="e.g. eggs, flour, butter, sugar" aria-label="Ingredients you have" />
+        <datalist id="ingredient-list">
+          {allIngredients.map((i) => <option value={i} />)}
+        </datalist>
+        <ul id="matches" class="matches"></ul>
+      </div>
+    </section>
+
+    <section>
+      <h2>Or just ask</h2>
+      <AskBox compact />
+    </section>
+  </div>
+</Base>
+
+<script is:inline type="application/json" id="recipe-data" set:html={JSON.stringify(searchData)} />
+
+<style>
+  .filters { padding: 1rem; display: grid; gap: 0.75rem; margin-bottom: 1rem; }
+  .filter-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.75rem; }
+  select { text-transform: capitalize; }
+  .finder { padding: 1rem; }
+  .matches { list-style: none; padding: 0; margin: 1rem 0 0; display: grid; gap: 0.5rem; }
+</style>
+
+<script>
+  type Item = {
+    id: string; text: string; category: string; difficulty: string;
+    diet: string[]; minutes: number; ingredients: string[];
+  };
+  const data: Item[] = JSON.parse(document.getElementById('recipe-data')!.textContent!);
+  const titles = new Map<string, string>();
+  document.querySelectorAll<HTMLElement>('#results [data-id]').forEach((el) => {
+    titles.set(el.dataset.id!, el.querySelector('h3')?.textContent ?? el.dataset.id!);
+  });
+
+  // ---- Search and filters ----
+  const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+  const q = $<HTMLInputElement>('q');
+  const category = $<HTMLSelectElement>('category');
+  const difficulty = $<HTMLSelectElement>('difficulty');
+  const time = $<HTMLSelectElement>('time');
+  const diet = $<HTMLSelectElement>('diet');
+
+  function applyFilters() {
+    const words = q.value.toLowerCase().split(/\s+/).filter(Boolean);
+    let shown = 0;
+    for (const item of data) {
+      const ok =
+        words.every((w) => item.text.includes(w)) &&
+        (!category.value || item.category === category.value) &&
+        (!difficulty.value || item.difficulty === difficulty.value) &&
+        (!time.value || item.minutes <= Number(time.value)) &&
+        (!diet.value || item.diet.includes(diet.value));
+      const el = document.querySelector<HTMLElement>(`#results [data-id="${item.id}"]`)!;
+      el.hidden = !ok;
+      if (ok) shown++;
+    }
+    $('count').textContent = `${shown} recipe${shown === 1 ? '' : 's'}`;
+    $('empty').hidden = shown > 0;
+  }
+  [q, category, difficulty, time, diet].forEach((el) => el.addEventListener('input', applyFilters));
+  applyFilters();
+
+  // ---- What can I make? ----
+  const STAPLES = ['salt', 'pepper', 'black pepper', 'oil', 'olive oil', 'vegetable oil', 'water'];
+  const have = $<HTMLInputElement>('have');
+  const matchesEl = $('matches');
+
+  function hasIngredient(owned: string[], ingredient: string) {
+    return owned.some((o) => ingredient.includes(o) || o.includes(ingredient));
+  }
+
+  function findMatches() {
+    const owned = have.value.toLowerCase().split(',').map((s) => s.trim()).filter(Boolean);
+    matchesEl.replaceChildren();
+    if (!owned.length) return;
+    const pool = [...owned, ...STAPLES];
+    const ranked = data
+      .map((item) => {
+        const missing = item.ingredients.filter((i) => !hasIngredient(pool, i));
+        const usesYours = item.ingredients.filter((i) => hasIngredient(owned, i)).length;
+        return { item, missing, usesYours, score: (item.ingredients.length - missing.length) / item.ingredients.length };
+      })
+      .filter((m) => m.usesYours > 0)
+      .sort((a, b) => b.score - a.score || a.missing.length - b.missing.length);
+
+    if (!ranked.length) {
+      const li = document.createElement('li');
+      li.className = 'muted';
+      li.textContent = 'No recipes use those ingredients yet. Try the “Or just ask” box below!';
+      matchesEl.append(li);
+      return;
+    }
+    for (const m of ranked.slice(0, 8)) {
+      const li = document.createElement('li');
+      const a = document.createElement('a');
+      a.href = `/recipes/${m.item.id}/`;
+      a.textContent = titles.get(m.item.id) ?? m.item.id;
+      const note = document.createElement('span');
+      note.className = 'muted';
+      note.textContent = m.missing.length
+        ? ` — missing ${m.missing.length}: ${m.missing.join(', ')}`
+        : ' — you have everything!';
+      li.append(a, note);
+      matchesEl.append(li);
+    }
+  }
+  have.addEventListener('input', findMatches);
+</script>

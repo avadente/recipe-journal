@@ -1,0 +1,32 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getJournal, formatDate } from '../../lib/recipes';
+
+const posts = await getJournal();
+---
+
+<Base title="Journal" description="Notes and stories from my cooking and baking journey.">
+  <div class="narrow">
+    <h1>Journal</h1>
+    <p class="muted">Notes from the kitchen: wins, flops, and everything I'm learning along the way.</p>
+    <ul class="posts">
+      {
+        posts.map((p) => (
+          <li>
+            <a href={`/journal/${p.id}/`}>{p.data.title}</a>
+            <div class="muted date">{formatDate(p.data.date)}</div>
+            <p>{p.data.description}</p>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</Base>
+
+<style>
+  .posts { list-style: none; padding: 0; margin-top: 2rem; }
+  .posts li { padding-block: 1.25rem; border-bottom: 1px solid var(--border); }
+  .posts a { font-family: var(--serif); font-size: 1.4rem; font-weight: 600; text-decoration: none; }
+  .date { font-size: 0.9rem; }
+  .posts p { margin: 0.5rem 0 0; }
+</style>
